@@ -5,6 +5,9 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -27,7 +30,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -54,5 +57,5 @@ jobs:
           releaseBody: "See the assets below to download and install the latest version."
           releaseDraft: true
           prerelease: false
-          target: ${{ matrix.target }}
+          args: --target ${{ matrix.target }}
           updaterJsonPreferNsis: true
