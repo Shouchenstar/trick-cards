@@ -1,0 +1,38 @@
+# dependencies
+node_modules/
+
+# next.js build output
+.next/
+out/
+
+# tauri build output
+src-tauri/target/
+
+# typescript incremental cache
+*.tsbuildinfo
+
+# env files (含 API key，不要上传)
+.env
+.env.local
+.env.*.local
+
+# logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+.claude/
+
+# misc
+1.txt
+
+# Tauri updater private key (绝对不能上传！)
+.tauri-updater-keys
+
+##Skill、
+SKILL.MD
