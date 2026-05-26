@@ -5,6 +5,8 @@ import { safeFetch } from "../safeFetch";
 
 const ARXIV_ENDPOINT = "https://export.arxiv.org/api/query";
 
+const SEARCH_TIMEOUT_MS = 12_000;
+
 export async function searchArxiv(
   query: string,
   opts: {
@@ -28,7 +30,8 @@ export async function searchArxiv(
     }
     response = await safeFetch(`${ARXIV_ENDPOINT}?${params.toString()}`, {
       headers: { "user-agent": "trick-cards/0.1 (+research-aid)" },
-      cache: "no-store"
+      cache: "no-store",
+      signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS)
     });
     if (response.status !== 429) break;
   }
@@ -463,7 +466,7 @@ export async function searchSemanticScholar(
 
   const fullUrl = `${S2_ENDPOINT}?${params.toString()}`;
 
-  // 带退避重试（应对 429 限频）
+  // 带退避重试 + 超时（应对 429 限频和网络超时）
   let response: Response | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) {
@@ -471,7 +474,8 @@ export async function searchSemanticScholar(
     }
     response = await safeFetch(fullUrl, {
       headers: { "user-agent": "trick-cards/0.1 (+research-aid)" },
-      cache: "no-store"
+      cache: "no-store",
+      signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS)
     });
     if (response.status !== 429) break;
     console.log(`[S2] 429 rate-limited, retry ${attempt + 1}/3...`);
@@ -996,7 +1000,8 @@ export async function searchOpenAlex(
 
   const response = await safeFetch(`${OPENALEX_ENDPOINT}?${params.toString()}`, {
     headers: { "user-agent": "trick-cards/0.1 (mailto:trick-cards@research-aid.app)" },
-    cache: "no-store"
+    cache: "no-store",
+    signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS)
   });
   if (!response.ok) return [];
   const data = (await response.json()) as {

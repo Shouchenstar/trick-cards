@@ -5,6 +5,7 @@ import {
   CircleDot,
   ClipboardList,
   Copy,
+  FileDown,
   GitCompareArrows,
   PanelRightClose,
   PanelRightOpen,
@@ -23,6 +24,7 @@ import { CardTile } from "@/components/cards/CardTile";
 import { CollectionTabs } from "@/components/collections/CollectionTabs";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ContextMenu, type MenuItem } from "@/components/ui/ContextMenu";
+import { exportCardToPdf } from "@/lib/cardPdfExport";
 import { useTrickStore } from "@/lib/store/TrickStore";
 import { CardStatus, Collection, TrickCard } from "@/lib/types";
 import { cn, getCollectionMap, statusMeta } from "@/lib/utils";
@@ -444,11 +446,15 @@ export function CardsWorkspace() {
                       onContextMenu={(e) => {
                         e.preventDefault();
                         setSelectedCardId(card.id);
+                        const relatedCardsForMenu = cards.filter((item) =>
+                          card.relatedCardIds.includes(item.id)
+                        );
                         setCtxMenu({
                           x: e.clientX,
                           y: e.clientY,
                           items: [
                             { label: "编辑", icon: Pencil, onClick: () => openEditEditor(card) },
+                            { label: "导出 PDF", icon: FileDown, onClick: () => exportCardToPdf(card, collection, relatedCardsForMenu) },
                             { label: "复制标题", icon: Copy, onClick: () => navigator.clipboard.writeText(card.title) },
                             { label: "复制描述", icon: ClipboardList, onClick: () => navigator.clipboard.writeText(card.description) },
                             { label: "删除", icon: Trash2, onClick: () => handleDeleteCard(card), danger: true, dividerAfter: true }

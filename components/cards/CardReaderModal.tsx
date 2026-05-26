@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
-import { BookOpen, Link2, Pencil, X } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { BookOpen, FileDown, Link2, Pencil, X } from "lucide-react";
 import { Collection, TrickCard } from "@/lib/types";
-import { cn, getCardCover, getSourceTypeLabel, statusMeta } from "@/lib/utils";
+import {
+  cn,
+  getCardCover,
+  getSourceTypeLabel,
+  isCardSectionHidden,
+  statusMeta
+} from "@/lib/utils";
 import { MarkdownPreview } from "@/components/cards/MarkdownPreview";
 import { AsyncImage } from "@/components/AsyncImage";
+import { ImageLightbox } from "@/components/ImageLightbox";
+import { exportCardToPdf } from "@/lib/cardPdfExport";
 
 type CardReaderModalProps = {
   open: boolean;
@@ -59,6 +67,7 @@ export function CardReaderModal({
   onEdit
 }: CardReaderModalProps) {
   const isTextDragging = useRef(false);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -88,6 +97,14 @@ export function CardReaderModal({
 
   const cover = getCardCover(card);
   const status = statusMeta[card.status];
+  const showBenefits =
+    card.benefits.length > 0 && !isCardSectionHidden(card, "benefits");
+  const showCosts = card.costs.length > 0 && !isCardSectionHidden(card, "costs");
+  const showTradeoffs =
+    card.tradeoffs.length > 0 && !isCardSectionHidden(card, "tradeoffs");
+  const showApplicableScenarios =
+    card.applicableScenarios.length > 0 &&
+    !isCardSectionHidden(card, "applicableScenarios");
 
   return (
     <div
@@ -115,6 +132,14 @@ export function CardReaderModal({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => exportCardToPdf(card, collection, relatedCards)}
+              className="flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-medium text-slate-700"
+            >
+              <FileDown className="h-4 w-4" />
+              导出 PDF
+            </button>
             <button
               type="button"
               onClick={() => onEdit?.(card)}
@@ -186,7 +211,10 @@ export function CardReaderModal({
 
             {cover ? (
               <figure className="mt-8 overflow-hidden rounded-2xl border border-border bg-slate-50">
-                <div className="flex max-h-[70vh] items-center justify-center">
+                <div
+                  className="flex max-h-[70vh] cursor-zoom-in items-center justify-center"
+                  onClick={() => setLightboxImage(cover.url)}
+                >
                   <AsyncImage
                     src={cover.url}
                     alt={cover.title ?? card.title}
@@ -210,7 +238,10 @@ export function CardReaderModal({
                       key={img.id}
                       className="overflow-hidden rounded-2xl border border-border bg-slate-50"
                     >
-                      <div className="flex max-h-[70vh] items-center justify-center">
+                      <div
+                        className="flex max-h-[70vh] cursor-zoom-in items-center justify-center"
+                        onClick={() => setLightboxImage(img.url)}
+                      >
                         <AsyncImage
                           src={img.url}
                           alt={img.title ?? card.title}
@@ -235,41 +266,51 @@ export function CardReaderModal({
               <p>{card.solution}</p>
             </ReaderSection>
 
-            <div className="grid gap-8 border-t border-border py-8 md:grid-cols-2">
-              <section>
-                <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  收益
-                </h3>
-                <div className="mt-4 text-base leading-8 text-slate-700">
-                  <ListBlock items={card.benefits} />
-                </div>
-              </section>
-              <section>
-                <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  代价
-                </h3>
-                <div className="mt-4 text-base leading-8 text-slate-700">
-                  <ListBlock items={card.costs} />
-                </div>
-              </section>
-            </div>
-
-            <ReaderSection title="权衡取舍">
-              <ListBlock items={card.tradeoffs} />
-            </ReaderSection>
-
-            <ReaderSection title="适用场景">
-              <div className="flex flex-wrap gap-2">
-                {card.applicableScenarios.map((scenario) => (
-                  <span
-                    key={scenario}
-                    className="rounded-full border border-border bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600"
-                  >
-                    {scenario}
-                  </span>
-                ))}
+            {showBenefits || showCosts ? (
+              <div className="grid gap-8 border-t border-border py-8 md:grid-cols-2">
+                {showBenefits ? (
+                  <section>
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      收益
+                    </h3>
+                    <div className="mt-4 text-base leading-8 text-slate-700">
+                      <ListBlock items={card.benefits} />
+                    </div>
+                  </section>
+                ) : null}
+                {showCosts ? (
+                  <section>
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      代价
+                    </h3>
+                    <div className="mt-4 text-base leading-8 text-slate-700">
+                      <ListBlock items={card.costs} />
+                    </div>
+                  </section>
+                ) : null}
               </div>
-            </ReaderSection>
+            ) : null}
+
+            {showTradeoffs ? (
+              <ReaderSection title="权衡取舍">
+                <ListBlock items={card.tradeoffs} />
+              </ReaderSection>
+            ) : null}
+
+            {showApplicableScenarios ? (
+              <ReaderSection title="适用场景">
+                <div className="flex flex-wrap gap-2">
+                  {card.applicableScenarios.map((scenario) => (
+                    <span
+                      key={scenario}
+                      className="rounded-full border border-border bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600"
+                    >
+                      {scenario}
+                    </span>
+                  ))}
+                </div>
+              </ReaderSection>
+            ) : null}
 
             <ReaderSection title="心得笔记">
               {card.notes.length ? (
@@ -279,7 +320,7 @@ export function CardReaderModal({
                       key={note.id}
                       className="rounded-2xl border border-border bg-slate-50 p-5"
                     >
-                      {note.content}
+                      <MarkdownPreview content={note.content} />
                     </div>
                   ))}
                 </div>
@@ -360,6 +401,14 @@ export function CardReaderModal({
             </ReaderSection>
           </article>
         </div>
+
+        {lightboxImage && (
+          <ImageLightbox
+            src={lightboxImage}
+            alt={card.title}
+            onClose={() => setLightboxImage(null)}
+          />
+        )}
       </div>
     </div>
   );

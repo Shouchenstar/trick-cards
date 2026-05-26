@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import {
   CardImage,
+  CardOptionalSection,
   CardStatus,
   Collection,
   SourceType,
@@ -75,6 +76,8 @@ type CropSelection = {
   endY: number;
 };
 
+type OptionalListKey = CardOptionalSection;
+
 const sourceTypeOptions: SourceType[] = [
   "manual",
   "paper",
@@ -105,6 +108,27 @@ function splitLines(value: string) {
     .split(/\n/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function splitOptionalLines(
+  key: OptionalListKey,
+  value: string,
+  emptyOptionalLists: Record<OptionalListKey, boolean>
+) {
+  return splitLines(value);
+}
+
+function optionalListStateFromCard(card: TrickCard | null) {
+  return {
+    benefits:
+      card?.hiddenSections?.benefits ?? !(card?.benefits.length),
+    costs: card?.hiddenSections?.costs ?? !(card?.costs.length),
+    tradeoffs:
+      card?.hiddenSections?.tradeoffs ?? !(card?.tradeoffs.length),
+    applicableScenarios:
+      card?.hiddenSections?.applicableScenarios ??
+      !(card?.applicableScenarios.length)
+  } satisfies Record<OptionalListKey, boolean>;
 }
 
 function splitTags(value: string) {
@@ -211,6 +235,38 @@ function Field({
   );
 }
 
+function OptionalField({
+  label,
+  empty,
+  onEmptyChange,
+  children
+}: {
+  label: string;
+  empty: boolean;
+  onEmptyChange: (empty: boolean) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="block">
+      <span className="flex items-center justify-between gap-3">
+        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+          {label}
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium normal-case tracking-normal text-slate-500">
+          <input
+            type="checkbox"
+            checked={empty}
+            onChange={(event) => onEmptyChange(event.target.checked)}
+            className="h-3.5 w-3.5 rounded border-border text-primary focus:ring-primary/20"
+          />
+          无此项
+        </span>
+      </span>
+      <div className="mt-2">{children}</div>
+    </div>
+  );
+}
+
 const inputClass =
   "h-11 w-full rounded-xl border border-border bg-white px-3 text-sm text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15";
 
@@ -239,6 +295,9 @@ export function CardEditorModal({
   const [aiToast, setAiToast] = useState<string | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isTextDragging, setIsTextDragging] = useState(false);
+  const [emptyOptionalLists, setEmptyOptionalLists] = useState<
+    Record<OptionalListKey, boolean>
+  >(() => optionalListStateFromCard(card));
   const lastCreatedCollectionId = useRef<string | null>(null);
 
   const isEditing = Boolean(card);
@@ -265,6 +324,7 @@ export function CardEditorModal({
       setAiLoading(false);
       setAiError(null);
       setAiToast(null);
+      setEmptyOptionalLists(optionalListStateFromCard(card));
     }
   }, [card, open, collections]);
 
@@ -326,16 +386,18 @@ export function CardEditorModal({
         solution: current.solution.trim()
           ? current.solution
           : completion.solution,
-        benefits: current.benefits.trim()
+        benefits: emptyOptionalLists.benefits || current.benefits.trim()
           ? current.benefits
           : completion.benefits.join("\n"),
-        costs: current.costs.trim()
+        costs: emptyOptionalLists.costs || current.costs.trim()
           ? current.costs
           : completion.costs.join("\n"),
-        tradeoffs: current.tradeoffs.trim()
+        tradeoffs: emptyOptionalLists.tradeoffs || current.tradeoffs.trim()
           ? current.tradeoffs
           : completion.tradeoffs.join("\n"),
-        applicableScenarios: current.applicableScenarios.trim()
+        applicableScenarios:
+          emptyOptionalLists.applicableScenarios ||
+          current.applicableScenarios.trim()
           ? current.applicableScenarios
           : completion.applicableScenarios.join("\n"),
         tags: mergeTagStrings(current.tags, completion.tags)
@@ -357,6 +419,10 @@ export function CardEditorModal({
     value: CardFormState[Value]
   ) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function setOptionalListEmpty(key: OptionalListKey, empty: boolean) {
+    setEmptyOptionalLists((current) => ({ ...current, [key]: empty }));
   }
 
   async function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
@@ -724,11 +790,20 @@ export function CardEditorModal({
       status: form.status,
       problem: form.problem.trim() || "暂未补充 problem。",
       solution: form.solution.trim() || "暂未补充 solution。",
-      benefits: splitLines(form.benefits),
-      costs: splitLines(form.costs),
-      tradeoffs: splitLines(form.tradeoffs),
-      applicableScenarios: splitLines(form.applicableScenarios),
+      benefits: splitOptionalLines("benefits", form.benefits, emptyOptionalLists),
+      costs: splitOptionalLines("costs", form.costs, emptyOptionalLists),
+      tradeoffs: splitOptionalLines(
+        "tradeoffs",
+        form.tradeoffs,
+        emptyOptionalLists
+      ),
+      applicableScenarios: splitOptionalLines(
+        "applicableScenarios",
+        form.applicableScenarios,
+        emptyOptionalLists
+      ),
       unsuitableScenarios: card?.unsuitableScenarios ?? [],
+      hiddenSections: emptyOptionalLists,
       notes: form.note.trim()
         ? [
             {
@@ -1008,40 +1083,62 @@ export function CardEditorModal({
             </section>
 
             <section className="grid gap-4 md:grid-cols-2">
-              <Field label="收益">
+              <OptionalField
+                label="收益"
+                empty={emptyOptionalLists.benefits}
+                onEmptyChange={(empty) => setOptionalListEmpty("benefits", empty)}
+              >
                 <textarea
-                  className={textareaClass}
+                  className={cn(textareaClass, emptyOptionalLists.benefits && "bg-slate-50 text-slate-400")}
                   value={form.benefits}
                   onChange={(event) => updateForm("benefits", event.target.value)}
+                  disabled={emptyOptionalLists.benefits}
                   placeholder={"每行一个收益\n例如：降低推理成本"}
                 />
-              </Field>
-              <Field label="代价">
+              </OptionalField>
+              <OptionalField
+                label="代价"
+                empty={emptyOptionalLists.costs}
+                onEmptyChange={(empty) => setOptionalListEmpty("costs", empty)}
+              >
                 <textarea
-                  className={textareaClass}
+                  className={cn(textareaClass, emptyOptionalLists.costs && "bg-slate-50 text-slate-400")}
                   value={form.costs}
                   onChange={(event) => updateForm("costs", event.target.value)}
+                  disabled={emptyOptionalLists.costs}
                   placeholder={"每行一个代价\n例如：前处理链路变复杂"}
                 />
-              </Field>
-              <Field label="权衡取舍">
+              </OptionalField>
+              <OptionalField
+                label="权衡取舍"
+                empty={emptyOptionalLists.tradeoffs}
+                onEmptyChange={(empty) => setOptionalListEmpty("tradeoffs", empty)}
+              >
                 <textarea
-                  className={textareaClass}
+                  className={cn(textareaClass, emptyOptionalLists.tradeoffs && "bg-slate-50 text-slate-400")}
                   value={form.tradeoffs}
                   onChange={(event) => updateForm("tradeoffs", event.target.value)}
+                  disabled={emptyOptionalLists.tradeoffs}
                   placeholder="每行一个取舍"
                 />
-              </Field>
-              <Field label="适用场景">
+              </OptionalField>
+              <OptionalField
+                label="适用场景"
+                empty={emptyOptionalLists.applicableScenarios}
+                onEmptyChange={(empty) =>
+                  setOptionalListEmpty("applicableScenarios", empty)
+                }
+              >
                 <textarea
-                  className={textareaClass}
+                  className={cn(textareaClass, emptyOptionalLists.applicableScenarios && "bg-slate-50 text-slate-400")}
                   value={form.applicableScenarios}
                   onChange={(event) =>
                     updateForm("applicableScenarios", event.target.value)
                   }
+                  disabled={emptyOptionalLists.applicableScenarios}
                   placeholder="每行一个适用场景"
                 />
-              </Field>
+              </OptionalField>
             </section>
 
             <section>

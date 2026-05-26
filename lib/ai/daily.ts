@@ -20,18 +20,24 @@ export async function dailyDigest(
   const max = Math.min(Math.max(options.maxItems ?? 5, 1), 12);
   const hasVenueFilter = Boolean(options.venues?.length);
 
-  // 并发搜索：arXiv + Semantic Scholar + IEEE Xplore (含 OpenAlex)
+  // 并发搜索：所有源同时发起，带超时保护
+  const arxivPromise = searchArxiv(topic, { maxResults: max, sortBy: "submittedDate" })
+    .catch(() => [] as AISearchResultPaper[]);
+  const s2Promise = searchSemanticScholar(topic, {
+    maxResults: max,
+    venues: options.venues
+  }).catch(() => [] as AISearchResultPaper[]);
+  const ieeePromise = searchIEEEXplore(topic, {
+    maxResults: max,
+    venues: options.venues
+  }).catch(() => [] as AISearchResultPaper[]);
+
+  // 快速路径：arXiv 通常最快，先拿到结果就可以开始 LLM 摘要
+  // 同时等待所有源完成后合并去重
   const [arxivPapers, s2Papers, ieeePapers] = await Promise.all([
-    searchArxiv(topic, { maxResults: max, sortBy: "submittedDate" }),
-    searchSemanticScholar(topic, {
-      maxResults: max,
-      venues: options.venues
-    }).catch(() => [] as AISearchResultPaper[]),
-    // IEEE Xplore 搜索：优先覆盖 IEEE 会议/期刊（如 ISSCC, JSSC）
-    searchIEEEXplore(topic, {
-      maxResults: max,
-      venues: options.venues
-    }).catch(() => [] as AISearchResultPaper[])
+    arxivPromise,
+    s2Promise,
+    ieeePromise
   ]);
 
   // 合并去重（按标题相似度去重）
@@ -52,12 +58,16 @@ export async function dailyDigest(
 
   const items: DailyDigestItem[] = [];
   if (isLLMAvailable(options.llmOverride) && papers.length) {
-    for (const paper of papers) {
-      try {
-        const summarized = await summarizeOne(paper, options.llmOverride);
-        items.push({ paper, ...summarized });
-      } catch {
-        items.push({ paper });
+    // 并行调用 LLM 摘要（带重试），整体速度从 N×LLM延迟 → ~1×LLM延迟
+    const results = await Promise.allSettled(
+      papers.map((paper) => summarizeOneWithRetry(paper, options.llmOverride))
+    );
+    for (let i = 0; i < papers.length; i++) {
+      const result = results[i];
+      if (result.status === "fulfilled") {
+        items.push({ paper: papers[i], ...result.value });
+      } else {
+        items.push({ paper: papers[i] });
       }
     }
   } else {
@@ -82,6 +92,25 @@ type SummarizeOneResult = {
   benefits: string[];
   costs: string[];
 };
+
+async function summarizeOneWithRetry(
+  paper: AISearchResultPaper,
+  override?: LLMOverride,
+  maxRetries = 2
+): Promise<SummarizeOneResult> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await summarizeOne(paper, override);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < maxRetries - 1) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+      }
+    }
+  }
+  throw lastErr;
+}
 
 async function summarizeOne(
   paper: AISearchResultPaper,

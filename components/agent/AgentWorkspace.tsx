@@ -569,7 +569,7 @@ export function AgentWorkspace() {
   const cached = getAgentCache();
 
   const [input, setInput] = useState(
-    searchParams.get("q") || cached.input || "Multimodal RAG over enterprise PDF and screenshots"
+    searchParams.get("q") || cached.input || ""
   );
   const [venues, setVenues] = useState(cached.venues);
   const [selectedTypes, setSelectedTypes] =

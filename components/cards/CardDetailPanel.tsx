@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
+import { useState } from "react";
 import {
   ArrowUpRight,
+  FileDown,
   Link2,
   Maximize2,
   NotebookPen,
@@ -9,9 +11,17 @@ import {
   Trash2
 } from "lucide-react";
 import { Collection, TrickCard } from "@/lib/types";
-import { cn, getCardCover, getSourceTypeLabel, statusMeta } from "@/lib/utils";
+import {
+  cn,
+  getCardCover,
+  getSourceTypeLabel,
+  isCardSectionHidden,
+  statusMeta
+} from "@/lib/utils";
 import { MarkdownPreview } from "@/components/cards/MarkdownPreview";
 import { AsyncImage } from "@/components/AsyncImage";
+import { ImageLightbox } from "@/components/ImageLightbox";
+import { exportCardToPdf } from "@/lib/cardPdfExport";
 
 type CardDetailPanelProps = {
   card: TrickCard | null;
@@ -38,6 +48,8 @@ export function CardDetailPanel({
   onEdit,
   onDelete
 }: CardDetailPanelProps) {
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+
   if (!card || !collection) {
     return (
       <aside className="rounded-3xl border border-dashed border-border bg-white/70 p-6 text-sm text-text-secondary shadow-soft">
@@ -48,6 +60,14 @@ export function CardDetailPanel({
 
   const cover = getCardCover(card);
   const status = statusMeta[card.status];
+  const showBenefits =
+    card.benefits.length > 0 && !isCardSectionHidden(card, "benefits");
+  const showCosts = card.costs.length > 0 && !isCardSectionHidden(card, "costs");
+  const showTradeoffs =
+    card.tradeoffs.length > 0 && !isCardSectionHidden(card, "tradeoffs");
+  const showApplicableScenarios =
+    card.applicableScenarios.length > 0 &&
+    !isCardSectionHidden(card, "applicableScenarios");
 
   return (
     <aside className="rounded-3xl border border-border/80 bg-surface shadow-panel">
@@ -76,6 +96,15 @@ export function CardDetailPanel({
             {status.label}
           </span>
           <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => exportCardToPdf(card, collection, relatedCards)}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white text-slate-600"
+              aria-label="导出 PDF"
+              title="导出 PDF"
+            >
+              <FileDown className="h-4 w-4" />
+            </button>
             <button
               type="button"
               onClick={() => onOpenReader?.(card)}
@@ -125,7 +154,10 @@ export function CardDetailPanel({
       <div className="space-y-6 p-6">
         {cover ? (
           <div className="overflow-hidden rounded-2xl border border-border bg-slate-50">
-            <div className="flex max-h-[60vh] items-center justify-center">
+            <div
+              className="flex max-h-[60vh] cursor-zoom-in items-center justify-center"
+              onClick={() => setLightboxImage(cover.url)}
+            >
               <AsyncImage
                 src={cover.url}
                 alt={cover.title ?? card.title}
@@ -154,37 +186,45 @@ export function CardDetailPanel({
           </div>
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-2">
-          <div className="rounded-2xl border border-border p-4">
-            <SectionTitle>收益</SectionTitle>
-            <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
-              {card.benefits.map((item) => (
-                <li key={item}>• {item}</li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="rounded-2xl border border-border p-4">
-            <SectionTitle>代价</SectionTitle>
-            <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
-              {card.costs.map((item) => (
-                <li key={item}>• {item}</li>
-              ))}
-            </ul>
-          </div>
-        </section>
-
-        <section>
-          <SectionTitle>权衡取舍</SectionTitle>
-          <div className="mt-3 rounded-2xl border border-border bg-slate-50 p-4 text-sm leading-7 text-slate-700">
-            {card.tradeoffs.map((item) => (
-              <div key={item} className="flex gap-3">
-                <Sparkles className="mt-1 h-4 w-4 shrink-0 text-primary" />
-                <span>{item}</span>
+        {showBenefits || showCosts ? (
+          <section className="grid gap-4 xl:grid-cols-2">
+            {showBenefits ? (
+              <div className="rounded-2xl border border-border p-4">
+                <SectionTitle>收益</SectionTitle>
+                <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
+                  {card.benefits.map((item) => (
+                    <li key={item}>• {item}</li>
+                  ))}
+                </ul>
               </div>
-            ))}
-          </div>
-        </section>
+            ) : null}
+
+            {showCosts ? (
+              <div className="rounded-2xl border border-border p-4">
+                <SectionTitle>代价</SectionTitle>
+                <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
+                  {card.costs.map((item) => (
+                    <li key={item}>• {item}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
+        {showTradeoffs ? (
+          <section>
+            <SectionTitle>权衡取舍</SectionTitle>
+            <div className="mt-3 rounded-2xl border border-border bg-slate-50 p-4 text-sm leading-7 text-slate-700">
+              {card.tradeoffs.map((item) => (
+                <div key={item} className="flex gap-3">
+                  <Sparkles className="mt-1 h-4 w-4 shrink-0 text-primary" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section>
           <SectionTitle>心得笔记</SectionTitle>
@@ -198,7 +238,7 @@ export function CardDetailPanel({
                   <NotebookPen className="h-3.5 w-3.5" />
                   我的笔记
                 </div>
-                {note.content}
+                <MarkdownPreview content={note.content} compact />
               </div>
             ))}
           </div>
@@ -264,20 +304,30 @@ export function CardDetailPanel({
           </div>
         </section>
 
-        <section>
-          <SectionTitle>适用场景</SectionTitle>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {card.applicableScenarios.map((scenario) => (
-              <span
-                key={scenario}
-                className="rounded-full border border-border bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600"
-              >
-                {scenario}
-              </span>
-            ))}
-          </div>
-        </section>
+        {showApplicableScenarios ? (
+          <section>
+            <SectionTitle>适用场景</SectionTitle>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {card.applicableScenarios.map((scenario) => (
+                <span
+                  key={scenario}
+                  className="rounded-full border border-border bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600"
+                >
+                  {scenario}
+                </span>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
+
+      {lightboxImage && (
+        <ImageLightbox
+          src={lightboxImage}
+          alt={card.title}
+          onClose={() => setLightboxImage(null)}
+        />
+      )}
     </aside>
   );
 }

@@ -42,6 +42,12 @@ export type UsageRecord = {
   createdAt: string;
 };
 
+export type CardOptionalSection =
+  | "benefits"
+  | "costs"
+  | "tradeoffs"
+  | "applicableScenarios";
+
 export type CardImage = {
   id: string;
   cardId: string;
@@ -92,6 +98,7 @@ export type TrickCard = {
   tradeoffs: string[];
   applicableScenarios: string[];
   unsuitableScenarios?: string[];
+  hiddenSections?: Partial<Record<CardOptionalSection, boolean>>;
   notes: Note[];
   sources: Source[];
   usages: UsageRecord[];

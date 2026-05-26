@@ -1,5 +1,11 @@
 import { type ClassValue, clsx } from "clsx";
-import { Collection, TrickCard, CardStatus, SourceType } from "@/lib/types";
+import {
+  CardOptionalSection,
+  Collection,
+  TrickCard,
+  CardStatus,
+  SourceType
+} from "@/lib/types";
 
 export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -61,4 +67,11 @@ export const sourceTypeLabels: Record<SourceType, string> = {
 
 export function getSourceTypeLabel(type: SourceType) {
   return sourceTypeLabels[type] ?? "其他";
+}
+
+export function isCardSectionHidden(
+  card: TrickCard,
+  section: CardOptionalSection
+) {
+  return card.hiddenSections?.[section] === true;
 }
