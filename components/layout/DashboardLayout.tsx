@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { WindowChrome } from "@/components/layout/WindowChrome";
 
 const SIDEBAR_WIDTH_KEY = "trick-cards.sidebar-width.v1";
 const SIDEBAR_COLLAPSED_KEY = "trick-cards.sidebar-collapsed.v1";
@@ -110,6 +111,10 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         transition: "grid-template-columns 200ms ease"
       }}
     >
+      <WindowChrome
+        contentOffset={effectiveWidth + (collapsed ? 0 : 8)}
+      />
+
       <AppSidebar collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
 
       <button

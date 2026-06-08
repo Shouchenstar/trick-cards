@@ -7,7 +7,6 @@ import {
   Bookmark,
   Bot,
   CheckCircle2,
-  CircleDot,
   Compass,
   ExternalLink,
   FileText,
@@ -1759,10 +1758,6 @@ function EmptyState() {
         <RefreshCcw className="h-3.5 w-3.5" />
         滚动到输入区
       </button>
-      <div className="mt-1 flex items-center gap-1 text-[11px] text-slate-400">
-        <CircleDot className="h-3 w-3" />
-        当前为本地 mock 推理，后续可接 LLM + 检索 API。
-      </div>
     </section>
   );
 }
