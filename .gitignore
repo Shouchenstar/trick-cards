@@ -33,6 +33,7 @@ Thumbs.db
 
 # Tauri updater private key (绝对不能上传！)
 .tauri-updater-keys
+.tauri-updater-password
 
 ##Skill、
 SKILL.MD
