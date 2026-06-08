@@ -2,7 +2,7 @@
  * 应用版本号，发版时改这里。
  * 应与 src-tauri/tauri.conf.json 的 version 保持一致。
  */
-export const APP_VERSION = "0.1.3";
+export const APP_VERSION = "0.1.4";
 
 /**
  * GitHub 仓库路径，格式为 "owner/repo"。
